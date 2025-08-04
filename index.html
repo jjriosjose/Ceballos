@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa Ruta Eduar Ceballos</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; }
+    #map { height: 100%; width: 100%; }
+    .filter-box {
+      position: absolute; top: 10px; left: 10px; z-index: 999;
+      background: white; padding: 10px; border-radius: 5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    select, input { width: 100%; margin-bottom: 5px; }
+    button { width: 100%; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div class="filter-box">
+    <select id="SEMANA"><option value="">Semana</option></select>
+    <select id="DIA"><option value="">Día</option></select>
+    <select id="gestor_servicio"><option value="">Gestor</option></select>
+    <select id="vendedor"><option value="">Vendedor</option></select>
+    <select id="RazonSocial"><option value="">Cliente</option></select>
+    <button onclick="irAFormulario()">Visitar</button>
+  </div>
+  <div id="map"></div>
+
+  <script>
+    const mapa = L.map('map').setView([18.5, -70.0], 8);
+    L.tileLayer('https://${s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(mapa);
+
+    const urlCSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9ERHBiz2QlK1GY_pxQhMtcMfQD_uGG_E_hQHC6WO0JzFspkStVqCmuBe6tXLhHsCM31cpsAz8tsJ5/pub?output=csv";
+    let dataGlobal = [];
+
+    async function cargarDatos() {
+      const res = await fetch(urlCSV);
+      const texto = await res.text();
+      const filas = texto.trim().split("\n").map(f => f.split(","));
+      const headers = filas[0];
+      const datos = filas.slice(1).map(f => Object.fromEntries(f.map((v,i) => [headers[i], v])));
+      dataGlobal = datos;
+      poblarFiltros(datos);
+      colocarPines(datos);
+    }
+
+    function poblarFiltros(data) {
+      const campos = ["SEMANA", "DIA", "gestor_servicio", "vendedor", "RazonSocial"];
+      campos.forEach(campo => {
+        const select = document.getElementById(campo);
+        const valores = [...new Set(data.map(d => d[campo]))].sort();
+        valores.forEach(valor => {
+          const opt = document.createElement("option");
+          opt.value = valor; opt.textContent = valor;
+          select.appendChild(opt);
+        });
+      });
+    }
+
+    function colocarPines(data) {
+      data.forEach(d => {
+        const lat = parseFloat(d.Latitud);
+        const lng = parseFloat(d.Longitud);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          L.marker([lat, lng]).addTo(mapa)
+            .bindPopup("<b>" + d.RazonSocial + "</b><br>" + d.gestor_servicio + " / " + d.vendedor);
+        }
+      });
+    }
+
+    function irAFormulario() {
+      const cliente = document.getElementById("RazonSocial").value;
+      const datos = dataGlobal.find(d => d.RazonSocial === cliente);
+      if (!datos) return alert("Seleccione un cliente válido.");
+
+      const base = "https://docs.google.com/forms/d/e/1FAIpQLSeEki-rHj1e1OgDTM9W_VFJmd9k3YfKNIpRhclVaK6mx-hHvA/viewform";
+      const params = new URLSearchParams({
+        "entry.985299062": "Eduar Ceballos",
+        "entry.366494420": datos.gestor_servicio,
+        "entry.381054793": "Existente",
+        "entry.1521955635": datos["Cod Empresa"],
+        "entry.879964686": datos.RazonSocial,
+        "entry.1634734772": datos.Latitud,
+        "entry.566218311": datos.Longitud
+      });
+      window.open(`${base}?usp=pp_url&${params.toString()}`, "_blank");
+    }
+
+    cargarDatos();
+  </script>
+</body>
+</html>
