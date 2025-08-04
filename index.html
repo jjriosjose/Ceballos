@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mapa Interactivo - Eduar Ceballos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .panel {
+      position: absolute;
+      top: 10px; left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      font-family: sans-serif;
+      font-size: 14px;
+      max-height: 95vh;
+      overflow-y: auto;
+    }
+    select, input[type=text] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    button {
+      width: 100%;
+      padding: 6px;
+      margin-top: 5px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+<div class="panel">
+  <label>Condición:</label>
+  <select id="condicion">
+    <option>-- Seleccione --</option>
+    <option value="Nuevo">Nuevo</option>
+    <option value="Existente">Existente</option>
+  </select>
+  <label>Semana:</label>
+  <select id="semana"></select>
+  <label>Día de la Semana:</label>
+  <select id="dia"></select>
+  <label>Gestor:</label>
+  <select id="gestor"></select>
+  <label>Vendedor:</label>
+  <select id="vendedor"></select>
+  <label>Buscar Cliente:</label>
+  <input type="text" id="busqueda" placeholder="Escriba el nombre...">
+  <label>Cliente:</label>
+  <select id="cliente"></select>
+  <button onclick="visitar()">Visitar</button>
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<script>
+  const map = L.map('map').setView([18.5, -69.9], 8);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  let clientes = [];
+
+  function cargarDatos() {
+    Papa.parse("https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9ERHBiz2QlK1GY_pxQhMtcMfQD_uGG_E_hQHC6WO0JzFspkStVqCmuBe6tXLhHsCM31cpsAz8tsJ5/pub?output=csv", {
+      download: true,
+      header: true,
+      complete: function(results) {
+        clientes = results.data.filter(c => c.Latitud && c.Longitud);
+        llenarFiltros(clientes);
+        mostrarPines(clientes);
+      }
+    });
+  }
+
+  function llenarFiltros(data) {
+    const setOptions = (id, key) => {
+      const select = document.getElementById(id);
+      const values = [...new Set(data.map(c => c[key]).filter(Boolean))];
+      select.innerHTML = '<option>-- Seleccione --</option>' + values.map(v => `<option>${v}</option>`).join('');
+    };
+    setOptions('semana', 'SEMANA');
+    setOptions('dia', 'DIA');
+    setOptions('gestor', 'gestor_servicio');
+    setOptions('vendedor', 'vendedor');
+    setOptions('cliente', 'RazonSocial');
+  }
+
+  function mostrarPines(data) {
+    data.forEach(c => {
+      const marker = L.marker([parseFloat(c.Latitud), parseFloat(c.Longitud)]).addTo(map);
+      marker.bindPopup(`<b>${c.RazonSocial}</b><br>${c['Cod Empresa']}<br>${c.provincia}`);
+    });
+  }
+
+  function visitar() {
+    const clienteNombre = document.getElementById('cliente').value;
+    const cliente = clientes.find(c => c.RazonSocial === clienteNombre);
+    if (!cliente) return alert("Seleccione un cliente válido.");
+    const url = new URL("https://docs.google.com/forms/d/e/1FAIpQLSeEki-rHj1e1OgDTM9W_VFJmd9k3YfKNIpRhclVaK6mx-hHvA/viewform");
+    url.searchParams.set("entry.985299062", document.getElementById('vendedor').value);
+    url.searchParams.set("entry.366494420", document.getElementById('gestor').value);
+    url.searchParams.set("entry.381054793", document.getElementById('condicion').value);
+    url.searchParams.set("entry.1521955635", cliente["Cod Empresa"]);
+    url.searchParams.set("entry.879964686", cliente["RazonSocial"]);
+    url.searchParams.set("entry.1634734772", cliente["Latitud"]);
+    url.searchParams.set("entry.566218311", cliente["Longitud"]);
+    window.open(url.href, "_blank");
+  }
+
+  document.getElementById("busqueda").addEventListener("input", function() {
+    const filtro = this.value.toLowerCase();
+    const lista = clientes.filter(c => c.RazonSocial && c.RazonSocial.toLowerCase().includes(filtro));
+    const select = document.getElementById("cliente");
+    select.innerHTML = '<option>-- Seleccione --</option>' + lista.map(c => `<option>${c.RazonSocial}</option>`).join('');
+  });
+
+  cargarDatos();
+</script>
+</body>
+</html>
