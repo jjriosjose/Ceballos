@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Mapa Ruta Eduar Ceballos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <style>
+      body, html { margin: 0; padding: 0; height: 100%; }
+      #map { height: 100%; width: 100%; }
+      .floating-panel {
+        position: absolute;
+        top: 10px; left: 10px;
+        z-index: 999;
+        background: white;
+        padding: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        border-radius: 8px;
+        width: 270px;
+        max-height: 90%;
+        overflow-y: auto;
+      }
+      select, input, button {
+        width: 100%;
+        margin: 4px 0;
+        padding: 6px;
+        font-size: 14px;
+      }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="floating-panel">
+  <select id="condicion"><option value="">-- Condición --</option></select>
+  <select id="semana"><option value="">-- Semana --</option></select>
+  <select id="dia"><option value="">-- Día de la Semana --</option></select>
+  <select id="gestor"><option value="">-- Gestor --</option></select>
+  <select id="vendedor"><option value="">-- Vendedor --</option></select>
+  <input type="text" id="buscar" placeholder="Buscar Cliente..."/>
+  <select id="cliente"><option value="">-- Cliente --</option></select>
+  <button onclick="irRuta()">Visitar</button>
+  <button onclick="irFormulario()">Registro</button>
+  <button onclick="nuevoCliente()">Nuevo Cliente</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+let mapa = L.map('map').setView([18.5, -69.9], 8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapa);
+
+const urlCSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9ERHBiz2QlK1GY_pxQhMtcMfQD_uGG_E_hQHC6WO0JzFspkStVqCmuBe6tXLhHsCM31cpsAz8tsJ5/pub?output=csv";
+let clientes = [];
+
+fetch(urlCSV)
+  .then(res => res.text())
+  .then(data => {
+    const rows = data.split("\n").slice(1);
+    rows.forEach(row => {
+      const cols = row.split(",");
+      if (cols.length < 9) return;
+
+      const obj = {
+        provincia: cols[0],
+        dia: cols[1],
+        semana: cols[2],
+        vendedor: cols[3],
+        gestor: cols[4],
+        codigo: cols[5],
+        nombre: cols[6],
+        lat: parseFloat(cols[7]),
+        lng: parseFloat(cols[8])
+      };
+      clientes.push(obj);
+
+      // marcador
+      if (!isNaN(obj.lat) && !isNaN(obj.lng)) {
+        let marker = L.marker([obj.lat, obj.lng]).addTo(mapa);
+        marker.bindPopup(obj.nombre);
+      }
+    });
+
+    poblarFiltros();
+  });
+
+function poblarFiltros() {
+  const c = (id, campo) => {
+    let set = new Set(clientes.map(c => c[campo]).filter(Boolean));
+    set.forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.text = v;
+      document.getElementById(id).appendChild(opt);
+    });
+  };
+  c("condicion", "provincia"); // este campo es usado como "Condición"
+  c("semana", "semana");
+  c("dia", "dia");
+  c("gestor", "gestor");
+  c("vendedor", "vendedor");
+
+  const clienteSel = document.getElementById("cliente");
+  clientes.forEach(cli => {
+    const opt = document.createElement("option");
+    opt.value = cli.nombre;
+    opt.text = cli.nombre;
+    clienteSel.appendChild(opt);
+  });
+}
+
+function irRuta() {
+  const nombre = document.getElementById("cliente").value;
+  const cliente = clientes.find(c => c.nombre === nombre);
+  if (cliente) {
+    const link = `https://www.google.com/maps/dir/?api=1&destination=${cliente.lat},${cliente.lng}`;
+    window.open(link, '_blank');
+  } else {
+    alert("Selecciona un cliente válido.");
+  }
+}
+
+function irFormulario() {
+  const nombre = document.getElementById("cliente").value;
+  const cliente = clientes.find(c => c.nombre === nombre);
+  if (!cliente) return alert("Selecciona un cliente válido.");
+
+  const url = "https://docs.google.com/forms/d/e/1FAIpQLSeEki-rHj1e1OgDTM9W_VFJmd9k3YfKNIpRhclVaK6mx-hHvA/viewform?usp=pp_url"
+    + `&entry.985299062=${encodeURIComponent(cliente.vendedor)}`
+    + `&entry.366494420=${encodeURIComponent(cliente.gestor)}`
+    + `&entry.381054793=Existente`
+    + `&entry.1521955635=${encodeURIComponent(cliente.codigo)}`
+    + `&entry.879964686=${encodeURIComponent(cliente.nombre)}`
+    + `&entry.1634734772=${cliente.lat}&entry.566218311=${cliente.lng}`;
+  window.open(url, "_blank");
+}
+
+function nuevoCliente() {
+  const url = "https://docs.google.com/forms/d/e/1FAIpQLSeEki-rHj1e1OgDTM9W_VFJmd9k3YfKNIpRhclVaK6mx-hHvA/viewform";
+  window.open(url, "_blank");
+}
+</script>
+</body>
+</html>
